@@ -1915,6 +1915,13 @@ class DecisionLog(Base, TimestampMixin):
         )
 
 
+# Register signal service models with Base.metadata so ensure_database_schema()
+# auto-creates the `signals`, `signal_events`, and `regime_events` tables at boot.
+# Imported at end-of-module to avoid a circular import: services.signals.models
+# pulls TimestampMixin from this file, which must be fully defined first.
+from maverick_mcp.services.signals import models as _signals_models  # noqa: E402, F401
+
+
 # Initialize tables when module is imported
 if __name__ == "__main__":
     logger.info("Creating database tables...")
