@@ -49,10 +49,18 @@ def fetch_sp500_list() -> pd.DataFrame:
     logger.info("Fetching S&P 500 stock list from Wikipedia...")
 
     try:
-        # Read S&P 500 list from Wikipedia
-        tables = pd.read_html(
-            "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+        # Wikipedia blocks default urllib/pandas User-Agent with HTTP 403,
+        # so fetch with a browser UA and hand the HTML to pandas.
+        import urllib.request
+        from io import StringIO
+
+        req = urllib.request.Request(
+            "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
+            headers={"User-Agent": "Mozilla/5.0 (maverick-mcp seeder)"},
         )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            html = resp.read().decode("utf-8")
+        tables = pd.read_html(StringIO(html))
         sp500_df = tables[0]  # First table contains the stock list
 
         # Clean up column names
