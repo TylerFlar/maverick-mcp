@@ -5,8 +5,13 @@ description = "Personal-use MCP server for Claude Desktop providing professional
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    # Core MCP and server dependencies
-    "fastmcp>=2.7.0",
+    # Core MCP and server dependencies.
+    # Pinned >=3.2.4: FastMCP 3.1.0 has an SSE-transport regression where
+    # GET /sse accepts the connection but never emits the initial MCP
+    # `endpoint` event, leaving clients hanging on handshake indefinitely.
+    # 3.2.4 resolves that; Maverick's own docs also prefer streamable-http
+    # over SSE for 3.x so we switch transports alongside this bump.
+    "fastmcp>=3.2.4",
     "mcp>=1.9.3",
     "fastapi>=0.115.12",
     "uvicorn>=0.35.0",

@@ -52,9 +52,17 @@ USER maverick
 
 EXPOSE 8000
 
-# Health check for container orchestration (Docker, ECS, Kubernetes)
+# Health check for container orchestration (Docker, ECS, Kubernetes).
+# Hits /health which the server mounts alongside the MCP transport.
+# This stays a hard check (no ``|| exit 0`` defang) so Docker / compose
+# restart policies can actually recycle the container when it's stuck.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \
   CMD curl -f http://localhost:8000/health || exit 1
 
-# Start MCP server
-CMD ["uv", "run", "python", "-m", "maverick_mcp.api.server", "--transport", "sse", "--host", "0.0.0.0", "--port", "8000"]
+# Start MCP server on the streamable-http transport. FastMCP 3.x treats
+# streamable-http as the modern default; SSE is documented as legacy and
+# (in 3.1.0) has a handshake regression where ``GET /sse`` never sends
+# the initial MCP ``endpoint`` event and clients hang. Switching here
+# sidesteps the regression entirely; FastMCP has been bumped to >=3.2.4
+# in pyproject.toml alongside this change.
+CMD ["uv", "run", "python", "-m", "maverick_mcp.api.server", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]
