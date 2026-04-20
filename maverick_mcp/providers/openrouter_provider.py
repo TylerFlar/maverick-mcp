@@ -10,6 +10,7 @@ with hardcoded defaults as fallback.
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from enum import StrEnum
 from pathlib import Path
@@ -589,7 +590,16 @@ class OpenRouterProvider:
                 a shared singleton is created automatically.
         """
         self.api_key = api_key
-        self.base_url = "https://openrouter.ai/api/v1"
+        # ``OPENROUTER_BASE_URL`` lets a deployment redirect every LLM call
+        # through an OpenAI-compatible reverse proxy (e.g. tasque-manager's
+        # Claude-Code-backed proxy at host.docker.internal:3456/v1) instead
+        # of OpenRouter's own paid API. This eliminates per-token cost when
+        # the operator already has an LLM endpoint they're paying flat for.
+        # Defaults to OpenRouter's hosted API to preserve out-of-the-box
+        # behaviour for users with an OpenRouter key.
+        self.base_url = os.getenv(
+            "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
+        )
         self._model_usage_stats: dict[str, dict[str, int]] = {}
 
         # Use provided accumulator, shared singleton, or create new one
@@ -690,7 +700,13 @@ class OpenRouterProvider:
         # Track usage
         self._track_usage(model_id, task_type)
 
-        # Create LangChain ChatOpenAI instance
+        # ``streaming=True`` issues SSE-style requests; OpenRouter and the
+        # OpenAI hosted API both honour them. A reverse-proxy backend that
+        # only speaks unary JSON (e.g. tasque-manager's claude-print-backed
+        # proxy) cannot serve those — set ``OPENROUTER_DISABLE_STREAMING=1``
+        # in that environment to fall back to a single-response invocation.
+        streaming_enabled = os.getenv("OPENROUTER_DISABLE_STREAMING") not in {"1", "true", "yes"}
+
         llm = ChatOpenAI(
             model=model_id,
             temperature=final_temperature,
@@ -701,7 +717,7 @@ class OpenRouterProvider:
                 "HTTP-Referer": "https://github.com/wshobson/maverick-mcp",
                 "X-Title": "Maverick MCP",
             },
-            streaming=True,
+            streaming=streaming_enabled,
         )
 
         # Wrap with cost tracking when accumulator is available
